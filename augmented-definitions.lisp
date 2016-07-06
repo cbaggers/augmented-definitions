@@ -43,7 +43,7 @@
 	       (listp arg-list)
 	       (numberp line) (numberp col)
 	       (stringp snippet)
-	       (stringp file)
+	       (or (stringp file) (pathnamep file))
 	       (or (null buffer) (stringp buffer))))
   (setf (gethash name *arg-lists*) arg-list)
   ;; run (swank::find-definitions 'get-internal-real-time) for an example
@@ -57,19 +57,20 @@
 	    (:snippet ,snippet))))))
 
 
-(defun set-defun (form)
-  (let ((file "/home/baggers/Code/lisp/augmented-definitions/augmented-definitions.lisp"))
-    (destructuring-bind (def name args &rest body) form
-      (declare (ignore def body))
-      (set-definition name args file nil 0 0 (format nil "~a" form)))))
+(defun set-defun (form file)
+  (destructuring-bind (def name args &rest body) form
+    (declare (ignore def body))
+    (set-definition name args file nil 0 0 (format nil "~a" form))))
 
 
 ;;----------------------------------------------------------------------
 ;; Example
 
-(defmacro mydef (name args &body body)
-  (set-defun `(mydef ,name ,args ,@body))
-  nil)
+;; (defmacro mydef (name args &body body)
+;;   (set-defun `(mydef ,name ,args ,@body)
+;; 	     (or (namestring *compile-file-pathname*)
+;; 		 (error "Couldnt get source file")))
+;;   nil)
 
-(mydef noop (x)
-  (* x 10))
+;; (mydef noop (x)
+;;   (* x 10))
