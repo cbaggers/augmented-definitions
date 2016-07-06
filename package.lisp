@@ -1,4 +1,5 @@
 ;;;; package.lisp
 
 (defpackage #:augmented-definitions
-  (:use #:cl))
+  (:use #:cl)
+  (:export :set-definition))
