@@ -4,8 +4,8 @@
 (defvar *initial-find-definitions* (get 'swank::find-definitions
 					'swank/backend::implementation))
 
-(defvar *definitions*)
-(defvar *arg-lists* (make-hash-table))
+(defvar *definitions* nil)
+(defvar *arg-lists* nil)
 
 
 (defun init ()
@@ -22,7 +22,7 @@
 
 
 (defun our-find-definitions (name)
-  (or (gethash name *definitions*)
+  (or (when *definitions* (gethash name *definitions*))
       (funcall *initial-find-definitions* name)))
 
 
@@ -30,20 +30,46 @@
   (swank::with-buffer-syntax ()
     (let* ((parsed (swank::parse-raw-form raw-form))
 	   (name (first parsed))
-	   (sig (gethash name *arg-lists*)))
+	   (sig (when *arg-lists* (gethash name *arg-lists*))))
       (if sig
 	  (let ((sig (cons name sig)))
 	    (list (string-downcase (format nil "~s" sig)) nil))
 	  (funcall *initial-autodoc* raw-form :print-right-margin print-right-margin)))))
 
 
-(defun set-definition (name arg-list)
+(defun set-definition (name arg-list file buffer line col snippet)
   (init)
+  (assert (and (symbolp name)
+	       (listp arg-list)
+	       (numberp line) (numberp col)
+	       (stringp snippet)
+	       (stringp file)
+	       (or (null buffer) (stringp buffer))))
   (setf (gethash name *arg-lists*) arg-list)
   ;; run (swank::find-definitions 'get-internal-real-time) for an example
   (setf (gethash name *definitions*)
 	`(((defun ,name)
 	   (:location
-	    (:file "/home/baggers/Code/lisp/augmented-definitions/augmented-definitions.lisp")
-	    (:offset 0 0)
-	    (:snippet "nothing here"))))))
+	    ,(if buffer
+		 `(:buffer-and-file ,buffer ,file)
+		 `(:file ,file))
+	    (:offset ,col ,line)
+	    (:snippet ,snippet))))))
+
+
+(defun set-defun (form)
+  (let ((file "/home/baggers/Code/lisp/augmented-definitions/augmented-definitions.lisp"))
+    (destructuring-bind (def name args &rest body) form
+      (declare (ignore def body))
+      (set-definition name args file nil 0 0 (format nil "~a" form)))))
+
+
+;;----------------------------------------------------------------------
+;; Example
+
+(defmacro mydef (name args &body body)
+  (set-defun `(mydef ,name ,args ,@body))
+  nil)
+
+(mydef noop (x)
+  (* x 10))
